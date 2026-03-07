@@ -130,7 +130,20 @@ elif menu == "Welder Performance":
     """
     perf_df = pd.read_sql_query(performance_query, conn)
     st.table(perf_df)
+    # --- ADD THIS TO THE "Welder Performance" SECTION ---
+if not perf_df.empty:
+    # Convert dataframe to Excel in memory
+    import io
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+        perf_df.to_excel(writer, index=False, sheet_name='Performance_Report')
     
+    st.download_button(
+        label="📥 Download Performance Report (Excel)",
+        data=buffer.getvalue(),
+        file_name=f"Welder_Performance_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
+        mime="application/vnd.ms-excel"
+    )
     # NDE Distribution
     st.subheader("NDE Breakdown")
     nde_df = pd.read_sql_query("SELECT nde_type, COUNT(*) as Count FROM joints GROUP BY nde_type", conn)
