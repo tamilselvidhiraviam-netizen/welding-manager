@@ -1,0 +1,62 @@
+st.set_page_config(page_title="PipeWeld Quality Manager", layout="wide")
+st.title("🏗️ Weld Management & Continuity System")
+st.subheader("ASME Section IX Compliant Tracking")
+
+# --- DATABASE SIMULATION (In-Memory for now) ---
+if 'weld_data' not in st.session_state:
+    st.session_state.weld_data = pd.DataFrame(columns=[
+        "Drawing", "Joint No", "Weld Type", "Dia", "Sch", "Class", "WPS", "Welder ID", 
+        "Fit-up Date", "Weld Date", "NDE Type", "Report No", "Status"
+    ])
+
+# --- SIDEBAR: WELDER & WPS REGISTRY ---
+with st.sidebar:
+    st.header("Settings & Registry")
+    if st.button("Add New Welder/WPS"):
+        st.info("Registration Module: Link Welder ID to WPS Essential Variables.")
+
+# --- MAIN INTERFACE: DATA ENTRY ---
+tab1, tab2, tab3 = st.tabs(["New Weld Entry", "Update & NDE", "Reporting & Continuity"])
+
+with tab1:
+    st.write("### Initial Drawing & Joint Data")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        dwg = st.text_input("Drawing Number")
+        joint = st.text_input("Joint Number")
+        w_type = st.selectbox("Weld Type", ["Butt Weld", "Fillet", "Socket"])
+    
+    with col2:
+        dia = st.number_input("Diameter (Inch)", min_value=0.5)
+        sch = st.text_input("Schedule/Thickness")
+        p_class = st.text_input("Piping Class")
+        
+    with col3:
+        wps = st.text_input("WPS Number")
+        welder = st.text_input("Welder ID (Qualified for this WPS)")
+        w_date = st.date_input("Weld Date")
+
+    if st.button("Register Joint"):
+        new_row = {
+            "Drawing": dwg, "Joint No": joint, "Weld Type": w_type, "Dia": dia,
+            "Sch": sch, "Class": p_class, "WPS": wps, "Welder ID": welder,
+            "Weld Date": w_date, "Status": "Open"
+        }
+        st.session_state.weld_data = pd.concat([st.session_state.weld_data, pd.DataFrame([new_row])], ignore_index=True)
+        st.success(f"Joint {joint} registered successfully!")
+
+with tab2:
+    st.write("### Update Inspection & NDE")
+    if not st.session_state.weld_data.empty:
+        st.dataframe(st.session_state.weld_data)
+        # Logic for closing joints and adding Report Numbers goes here
+    else:
+        st.warning("No joints registered yet.")
+
+with tab3:
+    st.write("### Welder Continuity & Repair Rate")
+    # Calculation for 6-month window
+    today = datetime.now().date()
+    # In the next update, we will add the math for Inch-Dia repair rates here.
+    st.info("Continuity is monitored based on 'Weld Date' + 180 days.")
