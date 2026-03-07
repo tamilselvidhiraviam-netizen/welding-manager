@@ -130,21 +130,47 @@ elif menu == "Welder Performance":
     """
     perf_df = pd.read_sql_query(performance_query, conn)
     st.table(perf_df)
-    # --- ADD THIS TO THE "Welder Performance" SECTION ---
-if not perf_df.empty:
-    # Convert dataframe to Excel in memory
-    import io
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-        perf_df.to_excel(writer, index=False, sheet_name='Performance_Report')
+   # --- 4. WELDER PERFORMANCE (REPAIR RATES) ---
+elif menu == "Welder Performance":
+    st.subheader("Welder Performance Analytics")
     
-    st.download_button(
-        label="📥 Download Performance Report (Excel)",
-        data=buffer.getvalue(),
-        file_name=f"Welder_Performance_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
-        mime="application/vnd.ms-excel"
-    )
-    # NDE Distribution
-    st.subheader("NDE Breakdown")
-    nde_df = pd.read_sql_query("SELECT nde_type, COUNT(*) as Count FROM joints GROUP BY nde_type", conn)
-    st.bar_chart(nde_df.set_index('nde_type'))
+    # Query to get performance data
+    performance_query = """
+    SELECT 
+        welder_id,
+        COUNT(id) as Total_Joints,
+        SUM(joint_dia) as Total_Inch_Dia,
+        SUM(CASE WHEN nde_result = 'Fail' THEN 1 ELSE 0 END) as Total_Repairs,
+        ROUND((CAST(SUM(CASE WHEN nde_result = 'Fail' THEN 1 ELSE 0 END) AS FLOAT) / 
+        NULLIF(SUM(CASE WHEN nde_result IN ('Pass', 'Fail') THEN 1 ELSE 0 END), 0)) * 100, 2) as Repair_Rate_Percent
+    FROM joints
+    WHERE welder_id IS NOT NULL
+    GROUP BY welder_id
+    """
+    
+    perf_df = pd.read_sql_query(performance_query, conn)
+    
+    if not perf_df.empty:
+        # 1. Display the table
+        st.table(perf_df)
+        
+        # 2. Add Export Logic INSIDE this block
+        import io
+        buffer = io.BytesIO()
+        # Use ExcelWriter with XlsxWriter engine
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            perf_df.to_excel(writer, index=False, sheet_name='Performance_Report')
+        
+        st.download_button(
+            label="📥 Download Performance Report (Excel)",
+            data=buffer.getvalue(),
+            file_name=f"Welder_Performance_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
+            mime="application/vnd.ms-excel"
+        )
+        
+        # 3. Visual Charts
+        st.subheader("Productivity (Inch-Dia)")
+        st.bar_chart(perf_df.set_index('welder_id')['Total_Inch_Dia'])
+        
+    else:
+        st.warning("No welder data found. Complete some welds in the Dashboard first!")
