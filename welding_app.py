@@ -1,3 +1,9 @@
+import streamlit as st
+import pandas as pd
+import sqlite3
+from datetime import datetime
+
+# --- DATABASE SETUP ---
 conn = sqlite3.connect('welding_data.db', check_same_thread=False)
 c = conn.cursor()
 
