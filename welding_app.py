@@ -1,7 +1,14 @@
+I apologize. It seems the "code box" formatting is failing to display on your screen. I will now provide the entire program as plain text.
+
+To use this: 1. Select everything from the word import down to the very last line.
+2. Copy it.
+3. Paste it into your app.py file.
+
 import streamlit as st
 import pandas as pd
 import sqlite3
 import io
+
 def init_db():
 conn = sqlite3.connect('welding_qms_pro.db', check_same_thread=False)
 c = conn.cursor()
@@ -20,24 +27,22 @@ return conn
 conn = init_db()
 c = conn.cursor()
 
-2. UI LAYOUT
 st.set_page_config(layout="wide", page_title="WeldQMS")
 st.title("👨‍🏭 WeldQMS Professional")
 
 tabs = st.tabs(["📂 Areas", "📏 Joints", "👷 Welders", "📊 Reports"])
 
-AREA TAB
 with tabs[0]:
 st.header("Project Area Registration")
 with st.form("area_f"):
 name = st.text_input("Area Name")
 if st.form_submit_button("Create Area"):
+if name:
 c.execute("INSERT OR IGNORE INTO areas (area_name) VALUES (?)", (name,))
 conn.commit()
 st.rerun()
 st.dataframe(pd.read_sql_query("SELECT * FROM areas", conn))
 
-JOINTS TAB
 with tabs[1]:
 st.header("Joint Management")
 areas = [r[0] for r in c.execute("SELECT area_name FROM areas").fetchall()]
@@ -56,19 +61,18 @@ st.rerun()
 df_j = pd.read_sql_query("SELECT * FROM joints WHERE area_name=?", conn, params=(sel_area,))
 st.dataframe(df_j)
 
-WELDER TAB
 with tabs[2]:
 st.header("Welder Registry")
 with st.form("w_reg"):
 wid = st.text_input("Welder ID")
 wn = st.text_input("Welder Name")
 if st.form_submit_button("Register Welder"):
+if wid and wn:
 c.execute("INSERT OR IGNORE INTO welders (welder_id, name) VALUES (?,?)", (wid, wn))
 conn.commit()
 st.rerun()
 st.dataframe(pd.read_sql_query("SELECT * FROM welders", conn))
 
-REPORTS TAB
 with tabs[3]:
 st.header("Reports & Export")
 df_all = pd.read_sql_query("SELECT * FROM joints", conn)
