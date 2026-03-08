@@ -104,4 +104,3 @@ else:
 st.info("No data available.")
         FROM joints WHERE nde_result IS NOT NULL GROUP BY welder_id
         """
-        st.table(get_data(query))
