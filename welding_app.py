@@ -1,7 +1,3 @@
-It appears there is a technical issue preventing the code block from appearing in our chat. I will provide the entire program here as a plain text list.
-
-Please copy everything between the two lines of dashes below:
-
 import streamlit as st
 import pandas as pd
 import sqlite3
