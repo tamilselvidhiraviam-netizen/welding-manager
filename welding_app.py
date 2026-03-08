@@ -1,9 +1,3 @@
-I apologize. It seems the "code box" formatting is failing to display on your screen. I will now provide the entire program as plain text.
-
-To use this: 1. Select everything from the word import down to the very last line.
-2. Copy it.
-3. Paste it into your app.py file.
-
 import streamlit as st
 import pandas as pd
 import sqlite3
