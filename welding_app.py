@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 import io
-
 def init_db():
 conn = sqlite3.connect('welding_qms_pro.db', check_same_thread=False)
 c = conn.cursor()
@@ -17,15 +16,11 @@ CREATE TABLE IF NOT EXISTS welders (welder_id TEXT PRIMARY KEY, name TEXT);
 ''')
 conn.commit()
 return conn
-
 conn = init_db()
 c = conn.cursor()
-
 st.set_page_config(layout="wide", page_title="WeldQMS")
 st.title("👨‍🏭 WeldQMS Professional")
-
 tabs = st.tabs(["📂 Areas", "📏 Joints", "👷 Welders", "📊 Reports"])
-
 with tabs[0]:
 st.header("Project Area Registration")
 with st.form("area_f"):
@@ -36,7 +31,6 @@ c.execute("INSERT OR IGNORE INTO areas (area_name) VALUES (?)", (name,))
 conn.commit()
 st.rerun()
 st.dataframe(pd.read_sql_query("SELECT * FROM areas", conn))
-
 with tabs[1]:
 st.header("Joint Management")
 areas = [r[0] for r in c.execute("SELECT area_name FROM areas").fetchall()]
@@ -54,7 +48,6 @@ conn.commit()
 st.rerun()
 df_j = pd.read_sql_query("SELECT * FROM joints WHERE area_name=?", conn, params=(sel_area,))
 st.dataframe(df_j)
-
 with tabs[2]:
 st.header("Welder Registry")
 with st.form("w_reg"):
@@ -66,7 +59,6 @@ c.execute("INSERT OR IGNORE INTO welders (welder_id, name) VALUES (?,?)", (wid, 
 conn.commit()
 st.rerun()
 st.dataframe(pd.read_sql_query("SELECT * FROM welders", conn))
-
 with tabs[3]:
 st.header("Reports & Export")
 df_all = pd.read_sql_query("SELECT * FROM joints", conn)
