@@ -3,7 +3,6 @@ import pandas as pd
 import sqlite3
 import io
 
-1. DATABASE SETUP
 def init_db():
 conn = sqlite3.connect('welding_qms_pro.db', check_same_thread=False)
 c = conn.cursor()
