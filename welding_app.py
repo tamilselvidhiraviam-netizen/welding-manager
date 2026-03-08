@@ -1,330 +1,302 @@
+import streamlit as st
 import sqlite3
 import pandas as pd
-import os
 from datetime import datetime, timedelta
 
-app = Flask(__name__)
-UPLOAD_FOLDER = "uploads"
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+# -------------------------
+# DATABASE
+# -------------------------
 
+conn = sqlite3.connect("weld_control.db", check_same_thread=False)
+cursor = conn.cursor()
 
-# -----------------------------
-# DATABASE CONNECTION
-# -----------------------------
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS areas(
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+area_name TEXT,
+client TEXT,
+contractor TEXT,
+location TEXT
+)
+""")
 
-def get_db():
-    conn = sqlite3.connect("database.db")
-    conn.row_factory = sqlite3.Row
-    return conn
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS lines(
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+area_id INTEGER,
+line_number TEXT,
+tag_number TEXT,
+drawing_number TEXT,
+diameter TEXT
+)
+""")
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS welders(
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+welder_id TEXT,
+name TEXT,
+process TEXT,
+qualification_date TEXT
+)
+""")
 
-# -----------------------------
-# DATABASE INITIALIZATION
-# -----------------------------
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS welds(
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+line_id INTEGER,
+joint_number TEXT,
+weld_type TEXT,
+welder_id TEXT,
+weld_date TEXT
+)
+""")
 
-def init_db():
-    conn = get_db()
-    cur = conn.cursor()
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS nde(
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+weld_id INTEGER,
+nde_type TEXT,
+result TEXT,
+report_number TEXT,
+inspection_date TEXT
+)
+""")
 
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS areas(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        area_name TEXT,
-        client TEXT,
-        contractor TEXT,
-        location TEXT
-    )
-    """)
+conn.commit()
 
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS lines(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        area_id INTEGER,
-        line_number TEXT,
-        tag_number TEXT,
-        drawing_number TEXT,
-        diameter TEXT
-    )
-    """)
+# -------------------------
+# APP HEADER
+# -------------------------
 
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS welders(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        welder_id TEXT,
-        name TEXT,
-        process TEXT,
-        qualification_date TEXT
-    )
-    """)
+st.title("Weld Management & Welder Control System")
 
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS welds(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        line_id INTEGER,
-        joint_number TEXT,
-        weld_type TEXT,
-        welder_id TEXT,
-        weld_date TEXT
-    )
-    """)
+menu = st.sidebar.selectbox(
+"Navigation",
+["Areas","Line Numbers","Welders","Weld Joints","Excel Import","Reports","Welder Continuity"]
+)
 
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS nde(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        weld_id INTEGER,
-        nde_type TEXT,
-        result TEXT,
-        report_number TEXT,
-        inspection_date TEXT
-    )
-    """)
-
-    conn.commit()
-    conn.close()
-
-init_db()
-
-
-# -----------------------------
-# HOME PAGE
-# -----------------------------
-
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-
-# -----------------------------
+# -------------------------
 # AREAS
-# -----------------------------
+# -------------------------
 
-@app.route("/areas", methods=["GET","POST"])
-def areas():
+if menu == "Areas":
 
-    conn = get_db()
-    cur = conn.cursor()
+    st.header("Area Management")
 
-    if request.method == "POST":
-        area = request.form["area"]
-        client = request.form["client"]
-        contractor = request.form["contractor"]
-        location = request.form["location"]
+    area = st.text_input("Area Name")
+    client = st.text_input("Client Name")
+    contractor = st.text_input("Contractor Name")
+    location = st.text_input("Location")
 
-        cur.execute("""
-        INSERT INTO areas(area_name,client,contractor,location)
-        VALUES(?,?,?,?)
-        """,(area,client,contractor,location))
-
+    if st.button("Add Area"):
+        cursor.execute(
+        "INSERT INTO areas(area_name,client,contractor,location) VALUES(?,?,?,?)",
+        (area,client,contractor,location))
         conn.commit()
+        st.success("Area Added")
 
-    areas = cur.execute("SELECT * FROM areas").fetchall()
-    conn.close()
-
-    return render_template("areas.html",areas=areas)
+    df = pd.read_sql("SELECT * FROM areas",conn)
+    st.dataframe(df)
 
 
-# -----------------------------
+# -------------------------
 # LINE NUMBERS
-# -----------------------------
+# -------------------------
 
-@app.route("/lines", methods=["GET","POST"])
-def lines():
+if menu == "Line Numbers":
 
-    conn = get_db()
-    cur = conn.cursor()
+    st.header("Line Numbers")
 
-    if request.method == "POST":
+    areas = pd.read_sql("SELECT * FROM areas",conn)
 
-        area_id = request.form["area_id"]
-        line = request.form["line"]
-        tag = request.form["tag"]
-        drawing = request.form["drawing"]
-        dia = request.form["dia"]
+    area = st.selectbox("Select Area",areas["area_name"])
 
-        cur.execute("""
+    line = st.text_input("Line Number")
+    tag = st.text_input("Tag Number")
+    drawing = st.text_input("Drawing Number")
+    dia = st.text_input("Diameter")
+
+    if st.button("Add Line"):
+
+        area_id = areas[areas["area_name"]==area]["id"].values[0]
+
+        cursor.execute("""
         INSERT INTO lines(area_id,line_number,tag_number,drawing_number,diameter)
         VALUES(?,?,?,?,?)
         """,(area_id,line,tag,drawing,dia))
 
         conn.commit()
 
-    lines = cur.execute("""
+        st.success("Line Added")
+
+    df = pd.read_sql("""
     SELECT lines.*,areas.area_name
     FROM lines
-    LEFT JOIN areas ON lines.area_id=areas.id
-    """).fetchall()
+    LEFT JOIN areas ON lines.area_id = areas.id
+    """,conn)
 
-    areas = cur.execute("SELECT * FROM areas").fetchall()
+    st.dataframe(df)
 
-    conn.close()
-
-    return render_template("lines.html",lines=lines,areas=areas)
-
-
-# -----------------------------
+# -------------------------
 # WELDERS
-# -----------------------------
+# -------------------------
 
-@app.route("/welders",methods=["GET","POST"])
-def welders():
+if menu == "Welders":
 
-    conn = get_db()
-    cur = conn.cursor()
+    st.header("Welder Management")
 
-    if request.method == "POST":
+    wid = st.text_input("Welder ID")
+    name = st.text_input("Welder Name")
+    process = st.selectbox("Process",["SMAW","GTAW","FCAW","GMAW"])
+    qdate = st.date_input("Qualification Date")
 
-        wid = request.form["wid"]
-        name = request.form["name"]
-        process = request.form["process"]
-        qdate = request.form["qdate"]
+    if st.button("Add Welder"):
 
-        cur.execute("""
+        cursor.execute("""
         INSERT INTO welders(welder_id,name,process,qualification_date)
         VALUES(?,?,?,?)
-        """,(wid,name,process,qdate))
+        """,(wid,name,process,str(qdate)))
 
         conn.commit()
 
-    welders = cur.execute("SELECT * FROM welders").fetchall()
+        st.success("Welder Added")
 
-    conn.close()
+    df = pd.read_sql("SELECT * FROM welders",conn)
+    st.dataframe(df)
 
-    return render_template("welders.html",welders=welders)
+# -------------------------
+# WELD JOINTS
+# -------------------------
 
+if menu == "Weld Joints":
 
-# -----------------------------
-# WELDS
-# -----------------------------
+    st.header("Weld Joint Entry")
 
-@app.route("/welds",methods=["GET","POST"])
-def welds():
+    lines = pd.read_sql("SELECT * FROM lines",conn)
+    welders = pd.read_sql("SELECT * FROM welders",conn)
 
-    conn = get_db()
-    cur = conn.cursor()
+    line = st.selectbox("Line Number",lines["line_number"])
 
-    if request.method == "POST":
+    joint = st.text_input("Joint Number")
 
-        line_id = request.form["line_id"]
-        joint = request.form["joint"]
-        weld_type = request.form["type"]
-        welder = request.form["welder"]
-        date = request.form["date"]
+    weld_type = st.selectbox(
+    "Weld Type",
+    ["BW","SW","BRANCH"]
+    )
 
-        cur.execute("""
+    welder = st.selectbox("Welder ID",welders["welder_id"])
+
+    date = st.date_input("Weld Date")
+
+    if st.button("Add Weld"):
+
+        line_id = lines[lines["line_number"]==line]["id"].values[0]
+
+        cursor.execute("""
         INSERT INTO welds(line_id,joint_number,weld_type,welder_id,weld_date)
         VALUES(?,?,?,?,?)
-        """,(line_id,joint,weld_type,welder,date))
+        """,(line_id,joint,weld_type,welder,str(date)))
 
         conn.commit()
 
-    welds = cur.execute("""
+        st.success("Weld Added")
+
+    df = pd.read_sql("""
     SELECT welds.*,lines.line_number
     FROM welds
-    LEFT JOIN lines ON welds.line_id=lines.id
-    """).fetchall()
+    LEFT JOIN lines ON welds.line_id = lines.id
+    """,conn)
 
-    lines = cur.execute("SELECT * FROM lines").fetchall()
+    st.dataframe(df)
 
-    welders = cur.execute("SELECT * FROM welders").fetchall()
+# -------------------------
+# EXCEL IMPORT
+# -------------------------
 
-    conn.close()
+if menu == "Excel Import":
 
-    return render_template("welds.html",welds=welds,lines=lines,welders=welders)
+    st.header("Upload Weld Excel")
 
+    file = st.file_uploader("Upload Excel File")
 
-# -----------------------------
+    if file:
+
+        df = pd.read_excel(file)
+
+        st.write(df)
+
+        if st.button("Import Data"):
+
+            for i,row in df.iterrows():
+
+                cursor.execute("""
+                INSERT INTO welds(line_id,joint_number,weld_type,welder_id,weld_date)
+                VALUES(?,?,?,?,?)
+                """,(row["line_id"],row["joint"],row["type"],row["welder"],row["date"]))
+
+            conn.commit()
+
+            st.success("Data Imported")
+
+# -------------------------
 # REPORTS
-# -----------------------------
+# -------------------------
 
-@app.route("/reports")
-def reports():
+if menu == "Reports":
 
-    conn = get_db()
-    cur = conn.cursor()
+    st.header("Weld Reports")
 
-    weld_summary = cur.execute("""
+    weld_summary = pd.read_sql("""
     SELECT weld_type,COUNT(*) as total
     FROM welds
     GROUP BY weld_type
-    """).fetchall()
+    """,conn)
 
-    welder_summary = cur.execute("""
-    SELECT welder_id,COUNT(*) as total
+    st.subheader("Weld Type Summary")
+    st.dataframe(weld_summary)
+
+    welder_summary = pd.read_sql("""
+    SELECT welder_id,COUNT(*) as welds
     FROM welds
     GROUP BY welder_id
-    """).fetchall()
+    """,conn)
 
-    conn.close()
+    st.subheader("Welder Performance")
+    st.dataframe(welder_summary)
 
-    return render_template("reports.html",
-                           weld_summary=weld_summary,
-                           welder_summary=welder_summary)
+# -------------------------
+# WELDER CONTINUITY
+# -------------------------
 
+if menu == "Welder Continuity":
 
-# -----------------------------
-# EXCEL IMPORT
-# -----------------------------
+    st.header("Welder Continuity Check")
 
-@app.route("/import",methods=["POST"])
-def import_excel():
-
-    file = request.files["file"]
-
-    path = os.path.join(app.config["UPLOAD_FOLDER"],file.filename)
-    file.save(path)
-
-    df = pd.read_excel(path)
-
-    conn = get_db()
-    cur = conn.cursor()
-
-    for index,row in df.iterrows():
-
-        cur.execute("""
-        INSERT INTO welds(line_id,joint_number,weld_type,welder_id,weld_date)
-        VALUES(?,?,?,?,?)
-        """,(row["line_id"],row["joint"],row["type"],row["welder"],row["date"]))
-
-    conn.commit()
-    conn.close()
-
-    return redirect("/welds")
-
-
-# -----------------------------
-# WELDER CONTINUITY CHECK
-# -----------------------------
-
-@app.route("/continuity")
-def continuity():
-
-    conn = get_db()
-    cur = conn.cursor()
-
-    six_months = datetime.now() - timedelta(days=180)
-
-    inactive = cur.execute("""
+    df = pd.read_sql("""
     SELECT welder_id,MAX(weld_date) as last_weld
     FROM welds
     GROUP BY welder_id
-    """).fetchall()
+    """,conn)
 
     expired = []
 
-    for w in inactive:
-        if w["last_weld"]:
-            date = datetime.strptime(w["last_weld"],"%Y-%m-%d")
-            if date < six_months:
-                expired.append(w)
+    for i,row in df.iterrows():
 
-    conn.close()
+        if row["last_weld"]:
 
-    return {"expired_welders":expired}
+            date = datetime.strptime(row["last_weld"],"%Y-%m-%d")
 
+            if date < datetime.now() - timedelta(days=180):
 
-# -----------------------------
-# RUN APPLICATION
-# -----------------------------
+                expired.append(row)
 
-if __name__ == "__main__":
-    app.run(debug=True)
+    if expired:
+
+        st.warning("Welders With Expired Continuity")
+
+        st.dataframe(pd.DataFrame(expired))
+
+    else:
+
+        st.success("All Welders Active")
